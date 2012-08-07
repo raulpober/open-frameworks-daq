@@ -1,0 +1,54 @@
+<settings>
+	<delaytime>10</delaytime>
+	<nextfiletime>30000</nextfiletime>
+	<dataroot>/data</dataroot>
+	<globalfileprefix>HYDRORECORD</globalfileprefix>
+</settings>
+
+<device>
+    <type>MCCDEVICE</type>
+    <name>USB-1608-GX-2AO</name>
+	<id>100</id>
+    <settings>
+        <samplerate>100000</samplerate>
+        <minvoltage>-1</minvoltage>
+        <maxvoltage>1</maxvoltage>
+        <lowchan>0</lowchan>
+        <highchan>3</highchan>
+        <fileprefix>DAQDEV</fileprefix>
+		<filepostfix>MCCDAQ</filepostfix>
+		<fileext>bin</fileext>
+        <timeout>4</timeout>
+        <bulktxlength>512</bulktxlength>
+        <blocksize>2048</blocksize>
+        <blocks>512</blocks>
+    </settings>
+</device>
+<device>
+    <type>SERIALDEVICE</type>
+    <name>GPSSTREAM</name>
+	<id>1000</id>
+    <settings>
+        <fileprefix>DAQDEV</fileprefix>
+		<filepostfix>GPS</filepostfix>
+		<fileext>txt</fileext>
+        <blocksize>512</blocksize>
+        <blocks>512</blocks>
+		<commport>/dev/ttyS0</commport>
+		<baudrate>4800</baudrate>
+    </settings>
+</device>
+<device>
+    <type>PHIDGETSPATIAL</type>
+    <name>IMU</name>
+	<id>10000</id>
+    <settings>
+        <fileprefix>DAQDEV</fileprefix>
+		<filepostfix>IMU</filepostfix>
+		<fileext>bin</fileext>
+        <blocksize>840</blocksize>
+        <blocks>512</blocks>
+		<spatialsamplerate>10</spatialsamplerate>
+    </settings>
+</device>
+

@@ -1,0 +1,11 @@
+#include "DataStream.h"
+
+//--------------------------------------------------------------
+DataStream::DataStream(){
+    this.bufferSize = 8*1024*1024; // Roughly 10MB buffer
+}
+
+//--------------------------------------------------------------
+DataStream::DataStream(){
+    this.bufferSize = 8*1024*1024; // Roughly 10MB buffer
+}

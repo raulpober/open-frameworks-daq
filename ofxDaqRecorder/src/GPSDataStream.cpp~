@@ -1,0 +1,124 @@
+#include "GPSDataStream.h"
+
+//--------------------------------------------------------------
+GPSDataStream::GPSDataStream(){
+    fifo = new CircularFifo(256,512);
+    blockSize = 256;
+    N = 512;
+    startTime = ofGetElapsedTimef();
+    dataRate = 0;
+    writer = new DataWriter("DATA","GPS","gps");
+    dataBlock = (char*)malloc(blockSize);
+}
+
+
+//--------------------------------------------------------------
+GPSDataStream::GPSDataStream(int blockSize_, int N_){
+    fifo = new CircularFifo(blockSize_,N_);
+    blockSize = blockSize_;
+    N = N_;
+    startTime = ofGetElapsedTimef();
+    dataRate = 0;
+    writer = new DataWriter("DATA","GPS","gps");
+    dataBlock = (char*)malloc(blockSize);
+}
+
+//--------------------------------------------------------------
+GPSDataStream::GPSDataStream(int blockSize_, int N_, string filePrefix){
+    fifo = new CircularFifo(blockSize_,N_);
+    blockSize = blockSize_;
+    N = N_;
+    startTime = ofGetElapsedTimef();
+    dataRate = 0;
+    writer = new DataWriter(filePrefix,"GPS","gps");
+    dataBlock = (char*)malloc(blockSize);
+}
+
+GPSDataStream::~GPSDataStream() {
+    delete fifo;
+    writer->stop();
+    delete writer;
+    free(dataBlock);
+}
+
+//-------------------------------------------------------------
+void GPSDataStream::threadedFunction() {
+
+    char * data;
+    float tmp = 0;
+    int count = 0;
+
+    // Preallocate data buffer    
+    data = (char*)malloc(blockSize);
+    
+    // Conitune while the thread is running
+    while(isThreadRunning()) {
+        // Write data and sleep
+        for (unsigned int i=0;i<blockSize;i++) {
+            *(data + i) = (char)i;
+        }
+        fifo->writeBlock(data,blockSize);              
+        ofSleepMillis(1000);
+        if (count < 10) {
+            tmp += ((float)blockSize)/((float)ofGetElapsedTimef()-startTime)/1e6;
+            count++;
+        } else {
+            dataRate = tmp/count;
+            tmp = 0;
+            count = 0;
+        }
+        startTime = (float)ofGetElapsedTimef();
+    }
+    free(data);
+}
+
+//-------------------------------------------------------------
+bool GPSDataStream::start(int elapsedTime){
+    this->startThread(true,false);
+    return writer->start(elapsedTime);
+}
+
+//-------------------------------------------------------------
+bool GPSDataStream::stop(){
+    this->stopThread(true);
+    return writer->stop();
+}
+
+bool GPSDataStream::writeData(){
+    if (fifo->readBlock(dataBlock,blockSize)){  
+        return writer->writeData(dataBlock,blockSize);
+    } else {
+        return false;
+    }
+}
+
+//-------------------------------------------------------------  
+bool GPSDataStream::nextFile(int elapsedTime){
+    return writer->nextFile(elapsedTime);
+}
+
+//-------------------------------------------------------------
+bool GPSDataStream::dataValid(char  * dataIn,int bufferSize) {
+    for(int i = 0;i < bufferSize; i++) {
+        if (*(dataIn + i) != (char)i) { 
+            return false;
+        }    
+    }
+    return true;
+}    
+
+//-------------------------------------------------------------
+bool GPSDataStream::dataReady() {
+    return !fifo->isEmpty();
+}
+
+//-------------------------------------------------------------
+int GPSDataStream::bufferFree() {
+    return N - fifo->blocksUsed();
+}
+
+//-------------------------------------------------------------
+float GPSDataStream::getDataRate() {
+    return dataRate;
+}
+

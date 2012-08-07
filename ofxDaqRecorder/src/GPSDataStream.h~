@@ -1,0 +1,32 @@
+#include "ofMain.h"
+#include "DataStream.h"
+
+class GPSDataStream : public DataStream, public ofThread {
+
+    public:
+
+        GPSDataStream();
+        GPSDataStream(int blockSize_, int N_);
+        GPSDataStream(int blockSize_,int N_,string filePrefix);
+        ~GPSDataStream();
+        bool start(int elapsedTime);
+        bool stop();
+        bool writeData();
+        bool nextFile(int elapsedTime);
+        bool dataValid(char  * dataIn,int bufferSize);
+        bool dataReady();
+        int bufferFree();
+        float getDataRate();
+        void threadedFunction();
+                         
+
+    protected:
+
+        unsigned int blockSize;
+        float dataRate;
+        float startTime;
+        unsigned int dataStartTime;
+        unsigned int N;
+        char * dataBlock;
+
+};

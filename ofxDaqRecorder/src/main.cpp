@@ -1,10 +1,11 @@
 #include "testApp.h"
-#include "ofAppGlutWindow.h"
+#include "ofAppNoWindow.h"
 
 //--------------------------------------------------------------
 int main(){
-	ofAppGlutWindow window; // create a window
+	ofAppBaseWindow* window = new ofAppNoWindow();
+	//ofAppGlutWindow window; // create a window
 	// set width, height, mode (OF_WINDOW or OF_FULLSCREEN)
-	ofSetupOpenGL(&window, 1024, 768, OF_WINDOW);
+	ofSetupOpenGL(window, 512, 512, OF_WINDOW);
 	ofRunApp(new testApp()); // start the app
 }

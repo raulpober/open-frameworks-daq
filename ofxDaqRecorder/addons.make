@@ -1,0 +1,2 @@
+ofxDaq
+ofxXmlSettings

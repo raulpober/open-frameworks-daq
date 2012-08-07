@@ -10,14 +10,14 @@ OF_ROOT = ../../..
 # for example search paths like:
 # USER_CFLAGS = -I src/objects
 
-USER_CFLAGS = 
+USER_CFLAGS = -I/usr/include/libusb-1.0 
 
 
 # USER_LDFLAGS allows to pass custom flags to the linker
 # for example libraries like:
 # USER_LDFLAGS = libs/libawesomelib.a
 
-USER_LDFLAGS =
+USER_LDFLAGS = /usr/lib/libusb-1.0.so -lphidget21
 
 
 EXCLUDE_FROM_SOURCE="bin,.xcodeproj,obj"

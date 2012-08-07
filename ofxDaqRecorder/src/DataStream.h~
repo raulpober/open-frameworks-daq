@@ -1,0 +1,22 @@
+#include "CircularFifo.h"
+#include "DataWriter.h"
+
+class DataStream {
+
+    public:
+
+        virtual bool start(int elapsedTime) = 0;
+        virtual bool stop() = 0;
+        virtual bool writeData() = 0;
+        virtual bool nextFile(int elapsedTime) = 0;
+        virtual DataBlock queryData() = 0;
+        virtual bool loadSettings(ofxXmlSettings XML) = 0;
+        virtual int bufferFree() = 0;
+        virtual float getDataRate() = 0;
+
+    protected:
+
+        DataWriter * writer;
+        CircularFifo * fifo;
+
+};    

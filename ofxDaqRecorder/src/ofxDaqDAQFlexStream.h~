@@ -1,0 +1,38 @@
+#ifndef OFXDAQDAQFLEXSTREAM
+#define OFXDAQDAQFLEXSTREAM
+
+    #include "ofxDaqStream.h"
+
+    class ofxDaqDAQFlexStream : public ofxDaqStream, public ofThread {
+
+        public:
+
+            ofxDaqDAQFlexStream();
+            ofxDaqDAQFlexStream(int blockSize_, int N_);
+            ofxDaqDAQFlexStream(int blockSize_,int N_,string filePrefix);
+            ~ofxDaqDAQFlexStream();
+            bool start(int elapsedTime);
+            bool stop();
+            //bool loadSettings(ofxXmlSettings XML);
+            bool writeData();
+            bool update(int startTime, bool newFile);
+            bool nextFile(int elapsedTime);
+            bool dataValid(char  * dataIn,int bufferSize);
+            bool dataReady();
+            float percentBufferFree();
+            float getDataRate();
+            void threadedFunction();
+                         
+
+        protected:
+
+            unsigned int blockSize;
+            float dataRate;
+            float startTime;
+            unsigned int dataStartTime;
+            unsigned int N;
+            char * dataBlock;
+
+    };
+
+#endif

@@ -1,0 +1,49 @@
+#ifndef OFXDAQPHIDGETSPATIALSTREAM
+#define OFXDAQPHIDGETSPATIALSTREAM
+
+    #include "ofxDaqStream.h"
+    #include <phidget21.h>
+
+    class ofxDaqPhidgetSpatialStream : public ofxDaqStream, public ofThread {
+
+        public:
+
+            ofxDaqPhidgetSpatialStream();
+            ofxDaqPhidgetSpatialStream(int blockSize_, int N_);
+            ofxDaqPhidgetSpatialStream(int blockSize_,int N_,string filePrefix);
+            ~ofxDaqPhidgetSpatialStream();
+            bool start(int elapsedTime);
+            bool stop();
+            bool loadSettings(ofxXmlSettings XML);
+            bool writeData();
+            bool update(int startTime, bool newFile);
+            bool nextFile(int elapsedTime);
+            bool dataValid(char  * dataIn,int bufferSize);
+            bool dataReady();
+            float percentBufferFree();
+            float getDataRate();
+            void threadedFunction();
+                         
+
+        protected:
+
+            // Specific for Phidgets Spatial Sensors
+            int initialize();
+            int display_properties(CPhidgetHandle phid);
+            //Declare a spatial handle
+	        CPhidgetSpatialHandle spatial;
+
+            // Parameters for the Spatial 3/3/3 sensor
+            unsigned int spatialSampleRate;
+            bool deviceError;
+
+            unsigned int blockSize;
+            float dataRate;
+            float startTime;
+            unsigned int dataStartTime;
+            unsigned int N;
+            char * dataBlock;
+
+    };
+
+#endif
