@@ -1,8 +1,13 @@
+<gpsbaud>4800</gpsbaud>
+<gpsport>/dev/ttyS0</gpsport>
+
 <settings>
 	<delaytime>10</delaytime>
 	<nextfiletime>30000</nextfiletime>
 	<dataroot>/data</dataroot>
 	<globalfileprefix>HYDRORECORD</globalfileprefix>
+	<ipaddress>127.0.0.1</ipaddress>
+	<netport>11999</netport>
 </settings>
 
 <device>

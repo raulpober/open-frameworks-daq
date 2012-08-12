@@ -1,2 +1,3 @@
 ofxDaq
 ofxXmlSettings
+ofxNetwork

@@ -81,7 +81,8 @@ bool ofxDaqPhidgetSpatialStream::start(int elapsedTime){
 
 	running = true;
 
-    return writer->start(elapsedTime);
+    bool success = writer->start(elapsedTime);
+	return success;
 }
 
 //-------------------------------------------------------------
@@ -155,7 +156,7 @@ int SpatialDataHandler(CPhidgetSpatialHandle spatial, void *userptr, CPhidgetSpa
 	
 	// Check that we can fit the data in the buffer
 	
-	// The bytes per even are
+	// The bytes per event are
 	int bytesPerEvent = 3*3*sizeof(double) + 4*sizeof(int);
 	float timestamp;
 	int time;

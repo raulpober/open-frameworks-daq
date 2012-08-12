@@ -2,6 +2,7 @@
 #define GPSTIMESYNC
 
     #include "NMEAParser.h"
+	#include "ofMain.h"
 
     class GPSTimeSync {
 
@@ -14,6 +15,8 @@
         protected:
 
             CNMEAParser GPS;
+			// The serial comm
+            ofSerial serialPort;
             char dateTime[24];
             string setTime;
             string timeString;

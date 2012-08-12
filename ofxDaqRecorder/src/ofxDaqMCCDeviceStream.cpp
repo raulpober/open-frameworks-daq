@@ -5,9 +5,13 @@ ofxDaqMCCDeviceStream::ofxDaqMCCDeviceStream(ofxXmlSettings settings){
     fifo = new CircularFifo(blockSize,N);
     dataRate = 0;
     dataBlock = (char*)malloc(blockSize);
+	header = (char*)malloc(FILEHEADERBYTES);
+	headerSize = FILEHEADERBYTES;
     deviceError = false;
     initialized = false;
 	running = false;
+	
+	type = 3; // Define the type of data blocks
 }
 
 
@@ -21,6 +25,7 @@ ofxDaqMCCDeviceStream::~ofxDaqMCCDeviceStream() {
     delete fifo;
     delete writer;
     free(dataBlock);
+	free(header);
 }
 
 //-------------------------------------------------------------
@@ -60,6 +65,7 @@ bool ofxDaqMCCDeviceStream::loadSettings(ofxXmlSettings settings){
         cout << "error, device type not supported yet." << endl;
     } else {
         deviceType = USB_1608_GX_2AO;
+		maxCounts = 0xFFFF;
     }
     id = settings.getValue("id",1);
     sampleRate = settings.getValue("settings:samplerate",100000);
@@ -83,7 +89,7 @@ bool ofxDaqMCCDeviceStream::loadSettings(ofxXmlSettings settings){
     // Derived settings
 	
 	// Hard Code these for now since they seem like good values
-	numSamples = bulkTxLength*64;
+	numSamples = bulkTxLength*24;
     numChans = highChan-lowChan+1;
 	blockSize = numSamples*numChans; // *2 for 16-bit, but write 1/2 buffer chunks
 }
@@ -113,13 +119,20 @@ bool ofxDaqMCCDeviceStream::start(int elapsedTime){
 	// Setup the file I/O
 	startTime = ofGetElapsedTimef();
 	writer = new ofxDaqWriter(dataDirectoryPath,filePrefix,filePostfix,fileExt);
+	
+	// Define the file header
+	this->defineHeader();
+	
+	// copy the file header for the writer
+	writer->createHeader(this->header,headerSize);
 
     // Start the background reader thread.
     this->startThread(true,false);
 	
 	running = true;
 
-    return writer->start(elapsedTime);
+    bool success = writer->start(elapsedTime);
+	return success;
 }
 
 //-------------------------------------------------------------
@@ -145,6 +158,41 @@ bool ofxDaqMCCDeviceStream::dataValid(char  * dataIn,int bufferSize) {
     }
     return true;
 }    
+
+//-------------------------------------------------------------
+bool ofxDaqMCCDeviceStream::defineHeader(){
+
+	// Set all the bytes to zeros
+	memset(this->header,0,headerSize);
+	
+	// Repeatedly call write data to fill in the 
+	// header
+	int index = 0;
+	float timestamp = ofGetElapsedTimef();
+	memcpy(header + index,(char*)&timestamp,sizeof(timestamp));
+	index += sizeof(timestamp);
+	memcpy(header + index,(char*)&blockSize,sizeof(blockSize));
+	index += sizeof(blockSize);
+	memcpy(header + index,(char*)&sampleRate,sizeof(sampleRate));
+	index += sizeof(sampleRate);
+	memcpy(header + index,(char*)&maxCounts,sizeof(maxCounts));
+	index += sizeof(maxCounts);
+	memcpy(header + index,(char*)&minVoltage,sizeof(minVoltage));
+	index += sizeof(minVoltage);
+	memcpy(header + index,(char*)&maxVoltage,sizeof(maxVoltage));
+	index += sizeof(maxVoltage);
+	memcpy(header + index,(char*)&numChans,sizeof(numChans));
+	index += sizeof(numChans);
+	for (int i=0;i<numChans;i++){
+		memcpy(header + index, (char*)&calSlope[i],sizeof(calSlope[i]));
+		index += sizeof(calSlope[i]);
+		memcpy(header + index, (char*)&calOffset[i],sizeof(calOffset[i]));
+		index += sizeof(calOffset[i]);
+	}
+
+	return true;
+}
+	
 
 //-------------------------------------------------------------
 float ofxDaqMCCDeviceStream::getDataRate() {

@@ -6,6 +6,7 @@
 
     #define FIRSTHALF true
     #define SECONDHALF false
+	#define FILEHEADERBYTES 256
 
     class ofxDaqMCCDeviceStream : public ofxDaqStream, public ofThread {
 
@@ -19,6 +20,7 @@
             bool dataValid(char  * dataIn,int bufferSize);
             float getDataRate();
             void threadedFunction();
+			bool defineHeader();
 
             // MCC Device specific functions
             void fillCalConstants(unsigned int lowChan, unsigned int highChan);
@@ -39,6 +41,7 @@
             unsigned int sampleRate;
             unsigned int timeout;
             unsigned int bulkTxLength;
+			unsigned int maxCounts;
             float *calSlope;
             float *calOffset;
             int minVoltage;

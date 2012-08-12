@@ -17,7 +17,7 @@ USER_CFLAGS = -I/usr/include/libusb-1.0
 # for example libraries like:
 # USER_LDFLAGS = libs/libawesomelib.a
 
-USER_LDFLAGS = /usr/lib/libusb-1.0.so -lphidget21
+USER_LDFLAGS = /usr/lib/libusb-1.0.so -lphidget21 -lusb
 
 
 EXCLUDE_FROM_SOURCE="bin,.xcodeproj,obj"

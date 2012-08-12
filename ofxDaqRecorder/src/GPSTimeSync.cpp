@@ -17,17 +17,30 @@ bool GPSTimeSync::syncSystemTime(int timeout){
 
     ofLogNotice() << "Waiting for GPS data..." << endl;
     bool validGPS = false;
-    int startTime = ofGetElapsedTimeMillis();    
+    int startTime = ofGetElapsedTimeMillis(); 
+	unsigned char serialData[1024];  
+
+	// Open the port
+	// Setup the serial port
+    serialPort.setup(commPort,baudRate);
+	serialPort.setVerbose(true);
 
     while (1){    
 
 
         // This is where we'd read from the port to get GPS NMEA strings        
-        gpsData.assign("$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A");
-        
+        //gpsData.assign("$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A");
+        int bytesAvailable = serialPort.available();
+		int bytesToRead = bytesAvailable;
+		if (bytesAvailable > 1024) {
+			bytesToRead = 1024;
+		}
+		int bytesRead = serialPort.readBytes(serialData,bytesToRead);
+		
+		
         // Process the data
-        for (unsigned int i = 0;i<gpsData.length();i++){
-            GPS.ProcessNMEA(gpsData[i]);
+        for (unsigned int i = 0;i<bytesRead;i++){
+            GPS.ProcessNMEA(serialData[i]);
         }
 
         // Check that fix is valid
@@ -41,8 +54,14 @@ bool GPSTimeSync::syncSystemTime(int timeout){
             validGPS = false;
             break;
         }
+		
+		// A short delay
+		ofSleepMillis(20);
 
     }
+	
+	// Close the port
+	serialPort.close();
 
     if (!validGPS){
         ofLogNotice() << "GPS time sync timed out." << endl;
@@ -70,7 +89,10 @@ bool GPSTimeSync::syncSystemTime(int timeout){
     // Set the system time
     bool result = system(setTime.c_str()); 
 
-    ofLogNotice() << "System time: " << setTime.c_str() << endl;
+    ofLogNotice() << "System time set command: " << setTime.c_str() << endl;
+	ofLogNotice() << "System time: " << ofGetTimestampString() << endl;
+	
+	
 
     return result;
 
