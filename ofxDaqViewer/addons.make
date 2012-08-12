@@ -1,0 +1,4 @@
+ofxFft
+ofxNetwork
+ofxXmlSettings
+ofxDaq
