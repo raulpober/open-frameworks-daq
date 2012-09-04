@@ -2,6 +2,7 @@
 
 #include "ofConstants.h"
 #include "ofAppBaseWindow.h"
+#include "signalHandler.h"
 
 
 //#ifdef TARGET_WIN32
@@ -47,4 +48,6 @@ public:
     float 			frameRate;
 
     ofBaseApp *		ofAppPtr;
+	
+	SignalHandler signalHandler;
 };

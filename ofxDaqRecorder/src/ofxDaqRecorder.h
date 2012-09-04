@@ -5,6 +5,7 @@
 #include "ofxXmlSettings.h"
 #include "ofxDaqPhidgetSpatialStream.h"
 #include "ofxDaqMCCDeviceStream.h"
+#include "ofxDaqMCCDevice.h"
 #include "ofxDaqSerialStream.h"
 #include "ofxDaqDCDCUSB.h"
 #include "GPSTimeSync.h"
@@ -37,4 +38,6 @@ class ofxDaqRecorder : public ofBaseApp{
         unsigned int startTime;
 		GPSTimeSync * gpsTimeSync;
 		bool gpsSync;
+		
+
 };

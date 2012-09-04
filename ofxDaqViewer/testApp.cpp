@@ -223,6 +223,7 @@ void testApp::setup() {
 
 	audioInput = new float[bufferSize];
 	memset(audioInput, 0, sizeof(float) * bufferSize);
+	audioInputIndex = 0;
 
 	mode = SINE;
 	appWidth = ofGetWidth();
@@ -238,6 +239,8 @@ void testApp::setup() {
 	
 	audioChannel = 0;
 	
+	newStatusMsg = false;
+	
 	// This tread monitors all the streams
     this->startThread(true,false);
 	
@@ -249,62 +252,44 @@ void testApp::threadedFunction(){
 	char udpMessage[msgSize];
 	int received;
 	int totalSize;
-	char *fullMsg;
-	int restSize;
-	int index;
+	float timer = ofGetElapsedTimef();
 	
 	while (isThreadRunning()){
-	
+		
 		received = udpConnection.Receive(udpMessage,msgSize);
 		
 		if (received > 0){
 		
-			cout << (int)(udpMessage[0]) << endl;
+			//cout << (int)(udpMessage[0]) << endl;
 		
 			switch (udpMessage[0]){
 			
 				case GPSMSG:
 					// Assume entire message fits in one UDP
-					procGPSMsg(udpMessage,msgSize);
+					procGPSMsg(udpMessage,received);
 					break;
 				case IMUMSG:
 					// Assume entire message fits in one UDP
-					procIMUMsg(udpMessage,msgSize);
+					procIMUMsg(udpMessage,received);
 					break;
 				case MCCDAQMSG:
-					
-					
-					
-					memcpy((void*)&totalSize,udpMessage+2,sizeof(int));
-					cout << totalSize << endl;
-					restSize = totalSize - received;
-					if (restSize > 0 && restSize < 10000000) { // just ignore if size is too crazy, ie > 10MB
-						fullMsg = new char[totalSize];
-						memcpy(fullMsg,udpMessage,received);
-						index = received;
-						while (restSize > 0){
-							received = udpConnection.Receive(udpMessage,msgSize);
-							if (index + received < totalSize){
-								memcpy(fullMsg+index,udpMessage,received);
-								index += received;
-								restSize -= received;
-							}
-							else {
-								memcpy(fullMsg+index,udpMessage,totalSize - index);
-								restSize = -1;
-							}
-						}
-						procMCCDAQMsg(fullMsg,totalSize);
-						delete fullMsg;
-					}		
+					procMCCDAQMsg(udpMessage,received);	
 					break;
+				case TEXTMSG:
+					newStatusMsg = true;
+					statusMsg.assign(udpMessage);
+					
 				default :
 					// no action
 					break;
 			}      
         
 		}
-		ofSleepMillis(20); 
+		if(ofGetElapsedTimef() - timer > 1.0){
+			string msg = "HELLO";
+			udpConnection.Send(msg.c_str(),msg.length());
+			timer = ofGetElapsedTimef();
+		}
 	}
 }
 
@@ -316,43 +301,58 @@ void testApp::procMCCDAQMsg(char * msg, int length){
 	// Loop through and get the raw data
 	unsigned short tmpVal;
 	int index = 0;
-	int dataOffset = 2 + 1024;
+	int dataOffset = 2 + 2*3;
 	float * audioFromUDP = new float[(length - dataOffset)];
-	for (int j = audioChannel+dataOffset;j<length;j+=2*4){
+	for (int j = audioChannel+dataOffset;j<length;j+=2*3){
 		memcpy((char*)&tmpVal,(void*)(msg+j),2);
 		audioFromUDP[index] = (float)(tmpVal-32768.0)/65536.0;
 		index++;
 	}
 	
-	for(int i=0;i+bufferSize<=index;i+=bufferSize){
-
-		int cpy = bufferSize;
-		if (i+bufferSize > index){
-			cpy = index-i;
-		}
-		memcpy((char*)audioInput,(char*)(&audioFromUDP[i]),sizeof(float)*cpy);
+	int cpySize = 0;
+	bool updateSpec = false;
+	int dataToCpy = 0;
+	if(audioInputIndex + sizeof(float)*index >= bufferSize){
+		cpySize = bufferSize - audioInputIndex;
+		memcpy((char*)(audioInput+audioInputIndex),(char*)(audioFromUDP),sizeof(float)*cpySize);
+		audioInputIndex += cpySize;
+		dataToCpy = index - cpySize;
+		updateSpec = true;
+		audioInputIndex = 0;
+	}
+	else{
+		memcpy((char*)(audioInput+audioInputIndex),(char*)(audioFromUDP),sizeof(float)*index);
+		audioInputIndex += index;
+	}
+	
+	if (updateSpec){
+	
 		fft->setSignal(audioInput);
 
 		float* curFft = fft->getAmplitude();
+
 		int spectrogramWidth = (int) spectrogram.getWidth();
 		unsigned char* pixels = spectrogram.getPixels();
 		for(int i=0;i<spectrogram.getHeight();i++){
 			memcpy(pixels+i*spectrogramWidth*3,pixels+i*spectrogramWidth*3+3,3*(spectrogramWidth-1));
 		}
-
-
 		float tmp;
 		spectrogramOffset = spectrogramWidth - 1;
 		for(int i = 0; i < fft->getBinSize(); i++){
 			// Transform the amplitudes
-			tmp = 10*log10(curFft[i]);
+			tmp	= 10*log10(curFft[i]);
 
 			spectrogram.setColor(spectrogramOffset,i,GetColor(tmp,minScale,maxScale));
 			//pixels[i * spectrogramWidth + spectrogramOffset] = (unsigned char) (tmpChar);
 		}
+	}
+	
+	if (dataToCpy > 0) {
+		memcpy((char*)(audioInput+audioInputIndex),(char*)(audioFromUDP+cpySize),sizeof(float)*dataToCpy);
+		audioInputIndex += dataToCpy;
+	}
 		
 	
-	}
 	delete audioFromUDP;
 	unlock();
 }
@@ -383,6 +383,9 @@ void testApp::draw() {
 	unlock();
 	ofPopMatrix();
 	string msg = ofToString((int) ofGetFrameRate()) + " fps";
+	ofDrawBitmapString(statusMsg, 50, 200);
+	ofDrawBitmapString("System Time Micros: " + ofToString(ofGetSystemTimeMicros()),50,210);
+	ofDrawBitmapString("Unix Time: " + ofToString(ofGetUnixTime()),50,220);
 	ofDrawBitmapString(msg, appWidth - 80, appHeight - 20);
     msg = "Cmin = " + ofToString((int)minScale) + "\nCMax = " + ofToString((int)maxScale);
     ofDrawBitmapString(msg, appWidth - 200, appHeight - 20);

@@ -1,10 +1,12 @@
+<gpssync>1</gpssync>
 <gpsbaud>4800</gpsbaud>
 <gpsport>/dev/ttyS0</gpsport>
 
+
 <settings>
 	<delaytime>10</delaytime>
-	<nextfiletime>30000</nextfiletime>
-	<dataroot>/data</dataroot>
+	<nextfiletime>60000</nextfiletime>
+	<dataroot>/home/bc/data</dataroot>
 	<globalfileprefix>HYDRORECORD</globalfileprefix>
 	<ipaddress>127.0.0.1</ipaddress>
 	<netport>11999</netport>
@@ -15,16 +17,16 @@
     <name>USB-1608-GX-2AO</name>
 	<id>100</id>
     <settings>
-        <samplerate>100000</samplerate>
-        <minvoltage>-1</minvoltage>
-        <maxvoltage>1</maxvoltage>
+        <samplerate>102400</samplerate>
+        <minvoltage>-2</minvoltage>
+        <maxvoltage>2</maxvoltage>
         <lowchan>0</lowchan>
-        <highchan>3</highchan>
+        <highchan>2</highchan>
         <fileprefix>DAQDEV</fileprefix>
 		<filepostfix>MCCDAQ</filepostfix>
 		<fileext>bin</fileext>
         <timeout>4</timeout>
-        <bulktxlength>512</bulktxlength>
+        <bulktxlength>2048</bulktxlength>
         <blocksize>2048</blocksize>
         <blocks>512</blocks>
     </settings>
@@ -51,9 +53,24 @@
         <fileprefix>DAQDEV</fileprefix>
 		<filepostfix>IMU</filepostfix>
 		<fileext>bin</fileext>
-        <blocksize>840</blocksize>
+        <blocksize>16</blocksize>
         <blocks>512</blocks>
-		<spatialsamplerate>10</spatialsamplerate>
+		<spatialsamplerate>8</spatialsamplerate>
     </settings>
+	<cal>
+		<val>0.311599</val>
+		<val>0.022301</val>
+		<val>-0.075285</val>
+		<val>-0.085225</val>
+		<val>2.862699</val>
+		<val>2.876595</val>
+		<val>3.888461</val>
+		<val>0.187947</val>
+		<val>0.058287</val>
+		<val>0.184345</val>
+		<val>-0.005544</val>
+		<val>0.081142</val>
+		<val>-0.006974</val>
+	</cal>
 </device>
 

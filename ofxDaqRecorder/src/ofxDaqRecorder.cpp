@@ -8,8 +8,7 @@ ofxDaqRecorder::~ofxDaqRecorder(){
     daqMan->stop();
     delete daqMan;
 	delete dcdcUSB;
-	delete gpsTimeSync;
-	ofLogNotice() << ofGetTimestampString() << " : Deleted streams and Manager" << endl; 
+	ofLogNotice() << ofGetTimestampString() << " : DELETED MANAGER, DCDCUSB, and GPSSYNC" << endl; 
 }
 
 //--------------------------------------------------------------
@@ -28,12 +27,13 @@ void ofxDaqRecorder::setup(){
 //--------------------------------------------------------------
 void ofxDaqRecorder::update(){
 
-	if(ofGetElapsedTimeMillis() - startTime > 5000){
+	// Having some issues with this battery voltage call so skip for now
+	/*if(ofGetElapsedTimeMillis() - startTime > 60000){
 
 		cout << "Battery Voltage: " << dcdcUSB->getBatteryVoltage() << endl;
 		startTime = ofGetElapsedTimeMillis();
 
-	}
+	}*/
 
 }
 
@@ -107,11 +107,29 @@ bool ofxDaqRecorder::load(){
 	//Grab the serial settings for the GPS device
 	int gpsBaud = allSettings.getValue("gpsbaud",4800);
 	string gpsPort = allSettings.getValue("gpsport","/dev/ttyS0");
+	int doGPSSync = allSettings.getValue("gpssync",0);
 	
-	// Sync the time
-	//gpsTimeSync = new GPSTimeSync(gpsBaud,gpsPort);
-	//ofLogNotice() << ofGetTimestampString() << " : Syncing system time with GPS..." <<endl;
-	//gpsSync = gpsTimeSync->syncSystemTime(120000);
+	if (doGPSSync == 1){
+	
+		// Use the MCCDAQ stream to flash white strobe while waitng for GPS
+		ofxDaqMCCDevice * strobeOnly = new ofxDaqMCCDevice();
+		// Sync the time
+		gpsTimeSync = new GPSTimeSync(gpsBaud,gpsPort);
+		ofLogNotice() << ofGetTimestampString() << " : Syncing system time with GPS..." <<endl;
+	
+		gpsSync = false;
+		float timer = ofGetElapsedTimef();
+		while (!gpsSync){
+			gpsSync = gpsTimeSync->syncSystemTime(1000);
+			strobeOnly->flashDIO(1);
+			if (ofGetElapsedTimef() - timer > 120){
+				break;
+			}
+		}
+		// NB: must delete the MCCDevice so we can use it later in the stream class
+		delete strobeOnly;
+		delete gpsTimeSync;
+	}
     
 	// this loads the global settings and turns on
 	// logging to file.

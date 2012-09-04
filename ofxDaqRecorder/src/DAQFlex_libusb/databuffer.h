@@ -10,6 +10,7 @@ class dataBuffer
                 throw MCC_ERR_INVALID_BUFFER_SIZE;
             numPoints = points;
             data = new unsigned short[points];
+			currReadIndex = 0;
         };
 
         ~dataBuffer()
@@ -28,6 +29,7 @@ class dataBuffer
 
         unsigned int currIndex;
         unsigned int currCount;
+		unsigned int currReadIndex;
         unsigned short* data;
     private:
         unsigned int numPoints;

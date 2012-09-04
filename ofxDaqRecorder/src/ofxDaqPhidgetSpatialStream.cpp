@@ -1,24 +1,13 @@
 #include "ofxDaqPhidgetSpatialStream.h"
 
-//--------------------------------------------------------------
-ofxDaqPhidgetSpatialStream::ofxDaqPhidgetSpatialStream(){
-    fifo = new CircularFifo(256,512);
-    blockSize = 256;
-    N = 512;
-    dataBlock = (char*)malloc(blockSize);
-	deviceDataBlock = (char*)malloc(blockSize);
-	deviceDataCount = 0;
-    deviceError = false;
-    spatialSampleRate = 10;
-	initialized = false;
-	running = false;
-}
-
 ofxDaqPhidgetSpatialStream::ofxDaqPhidgetSpatialStream(ofxXmlSettings settings){
-    this->loadSettings(settings);    
+	haveCalVals = 0;
+	this->loadSettings(settings);    
     fifo = new CircularFifo(blockSize,N);
 	dataBlock = (char*)malloc(blockSize);
 	deviceDataBlock = (char*)malloc(blockSize);
+	header = (char*)malloc(FILEHEADERBYTES);
+	headerSize = FILEHEADERBYTES;
 	deviceDataCount = 0;
 	deviceError = false;
 	initialized = false;
@@ -41,19 +30,76 @@ ofxDaqPhidgetSpatialStream::~ofxDaqPhidgetSpatialStream() {
 //-------------------------------------------------------------
 bool ofxDaqPhidgetSpatialStream::loadSettings(ofxXmlSettings settings){
 
-    // Try to load settings from file and use
+    
+	// Hard code the bytesPerEvent
+	// Define the bytes per spatial event
+	bytesPerEvent = (3*3*sizeof(double) + 2*sizeof(int) + 2*sizeof(unsigned long) + 2*sizeof(float));
+	
+	// Try to load settings from file and use
     // defaults if not found
     name = settings.getValue("name","PHIDGET SPATIAL");
 	id = settings.getValue("id",1);
-    spatialSampleRate = ("settings:spatialsamplerate",10);
+    spatialSampleRate = ("settings:spatialsamplerate",8);
 	N = settings.getValue("settings:blocks",512);
-	blockSize = settings.getValue("settings:blocksize",256);
+	int tmp = settings.getValue("settings:blocksize",256);
+	blockSize = tmp*bytesPerEvent;
 	filePrefix = settings.getValue("settings:fileprefix","TEST");
 	filePostfix = settings.getValue("settings:filepostfix","SERIAL");
 	fileExt = settings.getValue("settings:fileext","txt");
 	
+	// Load calibration data (Default values are from 3D calibration)
+	settings.pushTag("cal");
+	int numVals = settings.getNumTags("val");
+    if (numVals != 13){
+        ofLogError() << ofGetTimestampString() << "Wrong number of calibration vals skipping." <<endl;
+	}
+	else {
+		for (int i=0;i<numVals;i++){
+			calVals[i] = settings.getValue("val",0.0,i);
+			daqLog.logNotice(name,"Loaded cal value (" + ofToString(i) + ") = " +ofToString(calVals[i]));
+		}
+		haveCalVals = 1;
+	}
+	settings.popTag();
+	
 	daqLog.logNotice(name,"Loaded settings from XML");
+	
 
+}
+
+//-------------------------------------------------------------
+bool ofxDaqPhidgetSpatialStream::defineHeader(){
+
+	// Set all the bytes to zeros
+	memset(this->header,0,headerSize);
+	
+	// Repeatedly call write data to fill in the 
+	// header
+	int index = 0;
+	unsigned long systemMicros = ofGetSystemTimeMicros();
+	unsigned long unixTime = ofGetUnixTime();
+	float timestamp = ofGetElapsedTimef();
+	memcpy(header + index,(char*)&unixTime,sizeof(unixTime));
+	index += sizeof(unixTime);
+	memcpy(header + index,(char*)&systemMicros,sizeof(systemMicros));
+	index += sizeof(systemMicros);
+	memcpy(header + index,(char*)&timestamp,sizeof(timestamp));
+	index += sizeof(timestamp);
+	memcpy(header + index,(char*)&blockSize,sizeof(blockSize));
+	index += sizeof(blockSize);
+	memcpy(header + index,(char*)&spatialSampleRate,sizeof(spatialSampleRate));
+	index += sizeof(spatialSampleRate);
+	
+	
+	memcpy(header + index,(char*)&haveCalVals,sizeof(haveCalVals));
+	index += sizeof(haveCalVals);
+	for (int i=0;i<NUMCALVALS;i++){
+		memcpy(header + index,(char*)&calVals[i],sizeof(calVals[i]));
+		index += sizeof(calVals[i]);
+	}
+
+
+	return true;
 }
 
 //-------------------------------------------------------------
@@ -80,8 +126,15 @@ bool ofxDaqPhidgetSpatialStream::start(int elapsedTime){
     }
 
 	running = true;
+	
+	this->defineHeader();
 
     bool success = writer->start(elapsedTime);
+	
+	// Since this is the first file, write the header
+	// The rest of the time is is handled by the update method of parent class.
+	writer->writeData(header,headerSize);
+	
 	return success;
 }
 
@@ -139,7 +192,6 @@ int ErrorHandler(CPhidgetHandle spatial, void *userptr, int ErrorCode, const cha
 //count - the number of spatial data event packets included in this event
 int SpatialDataHandler(CPhidgetSpatialHandle spatial, void *userptr, CPhidgetSpatial_SpatialEventDataHandle *data, int count)
 {
-	int i,j;
 	//printf("Number of Data Packets in this event: %d\n", count);
 	ofxDaqPhidgetSpatialStream * ptr = (ofxDaqPhidgetSpatialStream *)userptr;
 	/*for(i = 0; i < count; i++)
@@ -155,18 +207,14 @@ int SpatialDataHandler(CPhidgetSpatialHandle spatial, void *userptr, CPhidgetSpa
 	*/
 	
 	// Check that we can fit the data in the buffer
+	int i,j;
+
+	for(i=0;i < count;i++){
 	
-	// The bytes per event are
-	int bytesPerEvent = 3*3*sizeof(double) + 4*sizeof(int);
-	float timestamp;
-	int time;
-	
-	if (ptr->deviceDataFull(bytesPerEvent)){
-		ptr->flushDeviceData();
-	}
-	
-	// Stuff the data and timestamp into the deviceDataBlock
-	for(i=0;i < 1;i++){
+		if (ptr->deviceDataFull(ptr->getBytesPerEvent())){
+			ptr->flushDeviceData();
+		}
+
 		//Acceleration
 		for(j=0;j<3;j++){
 			ptr->insertDeviceData((char*)&(data[i]->acceleration[j]),sizeof(double));
@@ -179,24 +227,21 @@ int SpatialDataHandler(CPhidgetSpatialHandle spatial, void *userptr, CPhidgetSpa
 		for(j=0;j<3;j++){
 			ptr->insertDeviceData((char*)&(data[i]->magneticField[j]),sizeof(double));
 		}
-		
-		// Timestamp from the device itself
+	
+		// Timestamps from HW and then system 
+		unsigned long systemMicros = ofGetSystemTimeMicros();
+		unsigned long unixTime = ofGetUnixTime();
+		float timestamp = ofGetElapsedTimef();
+	
+		// Timestamp from the device itself and other timing variables
 		ptr->insertDeviceData((char*)&(data[i]->timestamp.seconds),sizeof(int));
 		ptr->insertDeviceData((char*)&(data[i]->timestamp.microseconds),sizeof(int));
-		
-		// Timestamp from global framework first is the milisecond timer then hours, min, seconds
-		timestamp = ofGetElapsedTimef();
-		ptr->insertDeviceData((char*)&(timestamp),sizeof(int));
-		time = ofGetHours();
-		ptr->insertDeviceData((char*)&(time),sizeof(int));
-		time = ofGetMinutes();
-		ptr->insertDeviceData((char*)&(time),sizeof(int));
-		time = ofGetSeconds();
-		ptr->insertDeviceData((char*)&(time),sizeof(int));
-		
-	}
-	
-	
+		ptr->insertDeviceData((char*)&(unixTime),sizeof(unsigned long));
+		ptr->insertDeviceData((char*)&(systemMicros),sizeof(unsigned long));
+		ptr->insertDeviceData((char*)&(timestamp),sizeof(float));
+		ptr->insertDeviceData((char*)&(timestamp),sizeof(float));
+	}	
+
 	return 0;
 }
 
@@ -211,12 +256,21 @@ bool ofxDaqPhidgetSpatialStream::deviceDataFull(int nextWriteBytes){
 	return deviceDataCount > blockSize - nextWriteBytes;
 }
 
+bool ofxDaqPhidgetSpatialStream::writeDeviceData(CPhidgetSpatial_SpatialEventDataHandle *data, int count){
+
+
+}
+
 bool ofxDaqPhidgetSpatialStream::flushDeviceData(){
 	// write the buffer
 	fifo->writeBlock(deviceDataBlock,blockSize);
 	deviceDataCount = 0;
 	return true;
 }	
+
+int ofxDaqPhidgetSpatialStream::getBytesPerEvent(){
+	return bytesPerEvent;
+}
 
 
 	
@@ -286,6 +340,25 @@ int ofxDaqPhidgetSpatialStream::initialize()
 		CPhidget_getErrorDescription(result, &err);
 		daqLog.logError(DAQERR_DEVICE_ERROR,id,name,"Error Waiting for attachment: " + ofToString(err));
 		return 1;
+	}
+
+	// If we have cal data, insert it now
+	if (haveCalVals){
+		daqLog.logNotice(name,"Setting Calibration Values...");
+		CPhidgetSpatial_setCompassCorrectionParameters(spatial,calVals[0],
+			calVals[1],
+			calVals[2],
+			calVals[3],
+			calVals[4],
+			calVals[5],
+			calVals[6],
+			calVals[7],
+			calVals[8],
+			calVals[9],
+			calVals[10],
+			calVals[11],
+			calVals[12]
+		);
 	}
 
 	//Display the properties of the attached spatial device

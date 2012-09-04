@@ -16,11 +16,15 @@
             ~ofxDaqMCCDeviceStream();
             bool start(int elapsedTime);
             bool stop();
+			bool restart();
             bool loadSettings(ofxXmlSettings settings);
             bool dataValid(char  * dataIn,int bufferSize);
             float getDataRate();
             void threadedFunction();
 			bool defineHeader();
+			bool checkStatus();
+			bool flashDIO(int val);
+			bool sendDataBlock(ofxUDPManager * udpConnection);
 
             // MCC Device specific functions
             void fillCalConstants(unsigned int lowChan, unsigned int highChan);

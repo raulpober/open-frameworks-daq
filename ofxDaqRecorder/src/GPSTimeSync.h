@@ -10,6 +10,7 @@
 
             GPSTimeSync();
             GPSTimeSync(int baudRate, string commPort);
+			~GPSTimeSync();
             bool syncSystemTime(int timeout);
 
         protected:

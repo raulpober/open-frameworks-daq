@@ -4,12 +4,25 @@
 GPSTimeSync::GPSTimeSync(){
     baudRate = 4800;
     commPort = "/dev/ttyS0";
+	// Open the port
+	// Setup the serial port
+    serialPort.setup(commPort,baudRate);
+	serialPort.setVerbose(true);
 }
 
 //---------------------------------------------
 GPSTimeSync::GPSTimeSync(int baudRate, string commPort){
     this->baudRate = baudRate;
     this->commPort = commPort;
+	// Open the port
+	// Setup the serial port
+    serialPort.setup(commPort,baudRate);
+	serialPort.setVerbose(true);
+}
+
+GPSTimeSync::~GPSTimeSync(){
+	// Close the port
+	serialPort.close();
 }
 
 //---------------------------------------------
@@ -19,11 +32,6 @@ bool GPSTimeSync::syncSystemTime(int timeout){
     bool validGPS = false;
     int startTime = ofGetElapsedTimeMillis(); 
 	unsigned char serialData[1024];  
-
-	// Open the port
-	// Setup the serial port
-    serialPort.setup(commPort,baudRate);
-	serialPort.setVerbose(true);
 
     while (1){    
 
@@ -50,7 +58,7 @@ bool GPSTimeSync::syncSystemTime(int timeout){
         }
 
         // Check for timeout
-        if (ofGetElapsedTimeMillis() - startTime > timeout*1000){
+        if (ofGetElapsedTimeMillis() - startTime > timeout){
             validGPS = false;
             break;
         }
@@ -59,9 +67,6 @@ bool GPSTimeSync::syncSystemTime(int timeout){
 		ofSleepMillis(20);
 
     }
-	
-	// Close the port
-	serialPort.close();
 
     if (!validGPS){
         ofLogNotice() << "GPS time sync timed out." << endl;
@@ -94,6 +99,6 @@ bool GPSTimeSync::syncSystemTime(int timeout){
 	
 	
 
-    return result;
+    return validGPS;
 
 }

@@ -6,6 +6,7 @@
 #include <exception>
 
 #include "ofMain.h"
+#include "ofxDaqLog.h"
 
 #include "pollingthread.h"
 #include "datatypesandstatics.h"
@@ -78,6 +79,8 @@ class MCCDevice : public ofThread
 
         static unsigned char getEndpointInAddress(unsigned char* data, int data_length);
         static unsigned char getEndpointOutAddress(unsigned char* data, int data_length);
+
+		ofxDaqLog daqLog;
 };
 
 #endif // MCCDEVICE

@@ -13,7 +13,8 @@
 #define USB_1608_GX 0x0111
 #define USB_1608_GX_2AO 0x0112
 
-#define FIRMWAREPATH "/usr/lib/daqflex/"
+#define FIRMWAREPATH "/builds/of_v0071_linux_release/examples/open-frameworks-daq/ofxDaqRecorder/src/DAQFlex_libusb/"
+//#define FIRMWAREPATH "/usr/lib/daqflex/"
 
 #define SLOPE 0
 #define OFFSET 1

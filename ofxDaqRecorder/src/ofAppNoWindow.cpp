@@ -10,6 +10,7 @@
 #include <sys/select.h>
 #include <termios.h>
 
+
 struct termios orig_termios;
 struct sigaction act_open;
 
@@ -101,6 +102,10 @@ void ofAppNoWindow::runAppViaInfiniteLoop(ofBaseApp * appPtr){
 			"***\n*** keyboard input works here\n"
 			"***\n*** press Esc or Ctrl-C to quit\n"
 			"***\n";
+			
+	// Register signal handler to handle kill signal
+    signalHandler.setupSignalHandlers();		
+			
 	while (true)
 	{
 	    if (nFrameCount != 0 && bFrameRateSet == true){
@@ -167,6 +172,13 @@ void ofAppNoWindow::runAppViaInfiniteLoop(ofBaseApp * appPtr){
 		ofNotifyEvent( ofEvents().update, voidEventArgs);
 		#endif
 
+		// Check for exit signal
+		if (signalHandler.gotExitSignal()) {
+			if(ofAppPtr) {
+				ofAppPtr->exit();
+			}
+			exitApp();
+		}
 
 
         // -------------- fps calculation:
@@ -232,3 +244,4 @@ void ofAppNoWindow::setFrameRate(float targetRate){
 	frameRate				= targetRate;
 
 }
+          

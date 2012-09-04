@@ -14,6 +14,7 @@
 #define GPSMSG 1
 #define IMUMSG 2
 #define MCCDAQMSG 3
+#define TEXTMSG 4
 
 class testApp : public ofBaseApp, public ofThread{
 public:
@@ -35,6 +36,7 @@ public:
 	ofxFft* fft;
 
 	float* audioInput;
+	int audioInputIndex;
 
 	float appWidth;
 	float appHeight;
@@ -46,6 +48,8 @@ public:
 
     ofxUDPManager udpConnection;
     bool needUDPData;
+	bool newStatusMsg;
+	string statusMsg;
     int audioAvailable;
     int audioBufferOffset;
 	

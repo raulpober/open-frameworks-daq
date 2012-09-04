@@ -61,6 +61,7 @@ MCCDevice::MCCDevice(int idProduct)
     if(!found)
     {
         throw MCC_ERR_NO_DEVICE;
+		//daqLog.logError(DAQERR_DEVICE_ERROR,10,"MCCDEV","DEVICE NOT FOUND");
     }
     else
     {
@@ -115,6 +116,7 @@ MCCDevice::MCCDevice(int idProduct, string mfgSerialNumber)
                         retMessage = sendMessage(mfgsermsg);
                     }
                     catch(mcc_err err){
+						//daqLog.logError(DAQERR_DEVICE_ERROR,10,"MCCDEV","UNABLE TO GET SERIAL NUMBER");
                         throw err;
                     }
 
@@ -137,6 +139,7 @@ MCCDevice::MCCDevice(int idProduct, string mfgSerialNumber)
     if(!found)
     {
         throw MCC_ERR_NO_DEVICE;
+		//daqLog.logError(DAQERR_DEVICE_ERROR,10,"MCCDEV","DEVICE NOT FOUND");
     }
     else
     {
@@ -157,11 +160,11 @@ MCCDevice::~MCCDevice () {
 
 void MCCDevice::threadedFunction()
 {
-    int err = 0, transferred = 0;
+	int err = 0, transferred = 0;
     buffer->currIndex = 0;
 
     unsigned char* dataAsByte = (unsigned char*)buffer->data;
-    unsigned int timeout = 4;
+    // unsigned int timeout = 4; // use timeout defined in xml file
 
     while (isThreadRunning()){
         err =  libusb_bulk_transfer(dev_handle, 
@@ -171,8 +174,10 @@ void MCCDevice::threadedFunction()
             timeout);
         buffer->currIndex += (transferred/2);
         buffer->currCount += (transferred/2);
-        if(err == LIBUSB_ERROR_TIMEOUT && transferred > 0)//a timeout may indicate that some data was transferred, but not all
+        if(err == LIBUSB_ERROR_TIMEOUT && transferred > 0){//a timeout may indicate that some data was transferred, but not all
             err = 0;
+			//ofLog(OF_LOG_ERROR,"expected %d bytes got %d bytes",bulkTxLength,transferred);
+		}
         if (err < 0)
             throw libUSBError(err);
         if(buffer->currIndex >= (buffer->getNumPoints()))
@@ -213,6 +218,7 @@ void MCCDevice::initDevice()
                 cout << "Firmware being flashed...\n";
                 //firmware hasn't been loaded yet, do so
                 firmwarefile << FIRMWAREPATH << "USB_1608G.rbf";
+				cout << firmwarefile.str() << endl;
                 transferFPGAfile(firmwarefile.str());
 
                 //Check if the firmware got loaded successfully
@@ -282,8 +288,10 @@ void MCCDevice::transferFPGAfile(string path)
             numBytesTransferred = libusb_control_transfer(dev_handle, LIBUSB_REQUEST_TYPE_VENDOR + LIBUSB_ENDPOINT_OUT,
                                                   FPGADATAREQUEST, 0, 0, &memblock[totalBytesTransferred], length, 1000);
 
-            if(numBytesTransferred < 0)
+            if(numBytesTransferred < 0) {
+				//daqLog.logError(DAQERR_DEVICE_ERROR,10,"MCCDEV","FPGA FILE TRANSFER ERROR");
                 throw libUSBError(numBytesTransferred);
+			}
 
             totalBytesTransferred += numBytesTransferred;
         }
@@ -429,6 +437,7 @@ void MCCDevice::transferCallbackFunction(struct libusb_transfer *transfer_cb)
             cout << "libusb Transfer Overflow\n";
             throw MCC_ERR_LIBUSB_TRANSFER_OVERFLOW;
         default:
+			cout << "UNKNOWN MCC ERROR";
             throw MCC_ERR_UNKNOWN_LIB_USB_ERR;
     }
 }

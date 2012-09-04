@@ -32,7 +32,6 @@ ofxDaqMCCDeviceStream::~ofxDaqMCCDeviceStream() {
 void ofxDaqMCCDeviceStream::threadedFunction() {
 
     bool lastHalfRead = SECONDHALF;
-	int timeCounter = ofGetElapsedTimeMillis();
 
     while (isThreadRunning()){
         if((buffer->currIndex > buffer->getNumPoints()/2) && (lastHalfRead == SECONDHALF))
@@ -47,12 +46,47 @@ void ofxDaqMCCDeviceStream::threadedFunction() {
             fifo->writeBlock((char*)&buffer->data[buffer->getNumPoints()/2], buffer->getNumPoints()/2 * buffer->sizeOf());
             lastHalfRead = SECONDHALF;
         }
-		if ((ofGetElapsedTimeMillis() - timeCounter) > 10000){
-			daqLog.logNotice(name,device->sendMessage("?AISCAN:STATUS"));
-			timeCounter = ofGetElapsedTimeMillis();
-		}
     }
 	
+}
+
+bool ofxDaqMCCDeviceStream::checkStatus(){
+
+	bool okay = true;
+	
+	string scanRunning = device->sendMessage("?AISCAN:STATUS");
+	daqLog.logNotice(name,scanRunning);
+	//string aiStatus = device->sendMessage("?AI:STATUS");
+	//daqLog.logNotice(name,aiStatus);
+	string tempString = device->sendMessage("?DEV:TEMP");
+	daqLog.logNotice(name,tempString);
+	// if scan is still running, then flash  happy strobes
+	if ((scanRunning.find("RUNNING") != string::npos)){
+		device->sendMessage("DIO{0}:VALUE=3");
+		ofSleepMillis(10);
+		device->sendMessage("DIO{0}:VALUE=0");
+		okay = true;
+		
+	}
+	// else flash all (including error) strobe
+	else{
+		
+		device->sendMessage("DIO{0}:VALUE=7");
+		ofSleepMillis(10);
+		device->sendMessage("DIO{0}:VALUE=0");
+		
+		// Possibly do a restart here
+		okay = false;
+	}
+	return okay;
+}
+
+bool ofxDaqMCCDeviceStream::flashDIO(int val){
+
+	device->sendMessage("DIO{0}:VALUE="+ofToString(val));
+	ofSleepMillis(10);
+	device->sendMessage("DIO{0}:VALUE=0");
+	return true;
 }
 
 bool ofxDaqMCCDeviceStream::loadSettings(ofxXmlSettings settings){
@@ -90,7 +124,7 @@ bool ofxDaqMCCDeviceStream::loadSettings(ofxXmlSettings settings){
 	
 	// Hard Code these for now since they seem like good values
 	numSamples = bulkTxLength*24;
-    numChans = highChan-lowChan+1;
+	numChans = highChan-lowChan+1; 
 	blockSize = numSamples*numChans; // *2 for 16-bit, but write 1/2 buffer chunks
 }
 
@@ -122,9 +156,6 @@ bool ofxDaqMCCDeviceStream::start(int elapsedTime){
 	
 	// Define the file header
 	this->defineHeader();
-	
-	// copy the file header for the writer
-	writer->createHeader(this->header,headerSize);
 
     // Start the background reader thread.
     this->startThread(true,false);
@@ -132,8 +163,27 @@ bool ofxDaqMCCDeviceStream::start(int elapsedTime){
 	running = true;
 
     bool success = writer->start(elapsedTime);
+	
+	// Since this is the first file, write the header
+	// The rest of the time is is handled by the update method of parent class.
+	writer->writeData(header,headerSize);
+	
 	return success;
 }
+
+//-------------------------------------------------------------
+bool ofxDaqMCCDeviceStream::restart(){
+    
+    if (deviceError) {
+        return false;
+    }
+
+    device->sendMessage("AISCAN:STOP");
+	//ofSleepMillis(5);
+	daqLog.logNotice(name,"RESTARTED AISCAN");
+	device->sendMessage("AISCAN:START");
+}
+
 
 //-------------------------------------------------------------
 bool ofxDaqMCCDeviceStream::stop(){
@@ -168,7 +218,13 @@ bool ofxDaqMCCDeviceStream::defineHeader(){
 	// Repeatedly call write data to fill in the 
 	// header
 	int index = 0;
+	unsigned long systemMicros = ofGetSystemTimeMicros();
+	unsigned long unixTime = ofGetUnixTime();
 	float timestamp = ofGetElapsedTimef();
+	memcpy(header + index,(char*)&unixTime,sizeof(unixTime));
+	index += sizeof(unixTime);
+	memcpy(header + index,(char*)&systemMicros,sizeof(systemMicros));
+	index += sizeof(systemMicros);
 	memcpy(header + index,(char*)&timestamp,sizeof(timestamp));
 	index += sizeof(timestamp);
 	memcpy(header + index,(char*)&blockSize,sizeof(blockSize));
@@ -192,6 +248,63 @@ bool ofxDaqMCCDeviceStream::defineHeader(){
 
 	return true;
 }
+
+//-------------------------------------------------------------
+bool ofxDaqMCCDeviceStream::sendDataBlock(ofxUDPManager * udpConnection){
+
+	
+	// Prepare the data to send:
+	//
+	// One byte: TypeID
+	// One byte: multiMessage? 0-> all in one message, 1 -> multiple meesages
+	// Total Bytes (includes 2 above)
+	// Header Bytes
+	// Data Bytes
+	//
+	// Total length (bytes) = 2 + headerLength + dataLength
+	
+	if (!dataBlockFresh){
+		return true;
+	}
+	
+	int sent = 0;
+	int index = 0;
+	
+	
+	// Write out packets
+	int bytesLeft = blockSize;
+	int dataPointer = 0;
+	int txSize = 512;
+	char * msg = (char*)malloc(txSize);
+	
+	if (msg == NULL){
+		return false;
+	}
+	
+	// Want to send a multiple of number of channels in bytes up to 512 limit
+	int cpySize = txSize - 2*numChans - 2;	
+	
+	while(bytesLeft){
+		msg[0] = type;
+		index += 1;
+		msg[1] = 2*numChans;
+		index += 1;
+		if (dataPointer + cpySize >= blockSize){
+			break;
+		} 
+		memcpy(msg+2 + 2*numChans,dataBlock+dataPointer,cpySize); 
+		udpConnection->Send(msg,txSize);
+		dataPointer += cpySize;
+		bytesLeft -= cpySize;
+	}
+	
+	// Mark the data block as being stale
+	dataBlockFresh = false;
+	
+	free(msg);
+	
+	return true;
+}
 	
 
 //-------------------------------------------------------------
@@ -207,7 +320,7 @@ bool ofxDaqMCCDeviceStream::initialize(){
     // Setup default values
     string response;
     stringstream strLowChan, strHighChan, strRate, strNumSamples,
-                        strCalSlope, strCalOffset, strRange;
+                        strCalSlope, strCalOffset, strRange, strMode;
 
     calSlope = new float[numChans];
     calOffset = new float[numChans];
@@ -217,7 +330,7 @@ bool ofxDaqMCCDeviceStream::initialize(){
         device = new MCCDevice(deviceType);
 
         //create a buffer for the scan data
-        buffer = new dataBuffer(numSamples*numChans);
+        buffer = new dataBuffer(blockSize);
 
         // Sets up the channel and AISCAN parameters
 
@@ -225,11 +338,12 @@ bool ofxDaqMCCDeviceStream::initialize(){
         device->flushInputData();
 
         //Configure an input scan
+		device->sendMessage("AI:CHMODE=DIFF"); //Good for fast acquisitions
+		
         device->sendMessage("AISCAN:XFRMODE=BLOCKIO"); //Good for fast acquisitions
 
-        device->sendMessage("AISCAN:RANGE=BIP1V");//Set the voltage range on the device
-        minVoltage = -1;//Set range for scaling purposes
-        maxVoltage = 1;
+        strRange << "AISCAN:RANGE=BIP" << (maxVoltage) << "V";
+		device->sendMessage(strRange.str());//Set the voltage range on the device
 
         strLowChan << "AISCAN:LOWCHAN=" << lowChan;//Form the message
         device->sendMessage(strLowChan.str());//Send the message
@@ -245,6 +359,9 @@ bool ofxDaqMCCDeviceStream::initialize(){
 
         //Fill cal constants for later use
         fillCalConstants(lowChan, highChan);
+		
+		// Set DIO port to output
+		device->sendMessage("DIO{0}:DIR=OUT");
 
     }
 
@@ -252,7 +369,7 @@ bool ofxDaqMCCDeviceStream::initialize(){
     
         delete device;
         deviceError = true;
-        cout << errorString(err);
+		daqLog.logError(DAQERR_DEVICE_ERROR,id,name,errorString(err));
         return false;
     }    
 
